@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
 	"strings"
+
+	lark "github.com/larksuite/oapi-sdk-go/v3"
+	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+	larkwiki "github.com/larksuite/oapi-sdk-go/v3/service/wiki/v2"
 
 	"github.com/lbin/feishu_wiki_backup/core"
 	"github.com/lbin/feishu_wiki_backup/utils"
@@ -48,7 +51,7 @@ func handleConfigCommand(appId, appSecret string) error {
 	return nil
 }
 
-func handleUrlArgument(url string, verbose bool) error {
+func handleBackupCommand() error {
 	configPath, err := core.GetConfigFilePath()
 	if err != nil {
 		return err
@@ -58,87 +61,45 @@ func handleUrlArgument(url string, verbose bool) error {
 		return err
 	}
 
-	reg := regexp.MustCompile("^https://[a-zA-Z0-9-]+.(feishu.cn|larksuite.com)/(docs|docx|wiki)/([a-zA-Z0-9]+)")
-	matchResult := reg.FindStringSubmatch(url)
-	if matchResult == nil || len(matchResult) != 4 {
-		return fmt.Errorf("Invalid feishu/larksuite URL format\n")
+	client := lark.NewClient(config.Feishu.AppId, config.Feishu.AppSecret)
+	// req := larkwiki.NewGetSpaceReqBuilder().
+	// 	SpaceId("6992758255126577155").
+	// 	Build()
+	// // 发起请求
+	// resp, err := client.Wiki.Space.Get(context.Background(), req)
+
+	// req := larkwiki.NewCreateSpaceMemberReqBuilder().
+	// 	SpaceId("6992758255126577155").
+	// 	NeedNotification(true).
+	// 	Member(larkwiki.NewMemberBuilder().
+	// 		MemberType("openid").
+	// 		MemberId("ou_92bbf97867d1fa85a591513eb9a87ff1").
+	// 		MemberRole("admin").
+	// 		Build()).
+	// 	Build()
+	// // 发起请求
+	// resp, err := client.Wiki.SpaceMember.Create(context.Background(), req)
+
+	req := larkwiki.NewGetNodeSpaceReqBuilder().
+		Token("wikcn3eKUgmqiYc3GYaGentOSBh").
+		Build()
+	// 发起请求
+	resp, err := client.Wiki.Space.GetNode(context.Background(), req)
+
+	// 处理错误
+	if err != nil {
+		fmt.Println(err)
+		return err
 	}
 
-	// domain := matchResult[1]
-	// docType := matchResult[2]
-	docToken := matchResult[3]
-	fmt.Println("Captured document token:", docToken)
+	// 服务端错误处理
+	if !resp.Success() {
+		fmt.Println(resp.Code, resp.Msg, resp.RequestId())
+		return err
+	}
 
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "Verbose", verbose)
-	ctx = context.WithValue(ctx, "OutputConfig", config.Output)
-
-	client := core.NewClient(
-		config.Feishu.AppId, config.Feishu.AppSecret,
-	)
-
-	data, err := client.GetWikiSpaceList(ctx)
-	// data.HasMore
-	// data.Items
-	// data.PageToken
-
-	fmt.Printf("data %s\n", data)
-	// fmt.Printf("data.PageToken %s\n", data.PageToken)
-	fmt.Printf("err %s\n", err)
-
-	// parser := core.NewParser(ctx)
-	// title := ""
-	// markdown := ""
-
-	// // for a wiki page, we need to renew docType and docToken first
-	// if docType == "wiki" {
-	// 	node, err := client.GetWikiNodeInfo(ctx, docToken)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	docType = node.ObjType
-	// 	docToken = node.ObjToken
-	// }
-
-	// if docType == "docx" {
-	// 	docx, blocks, err := client.GetDocxContent(ctx, docToken)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	markdown = parser.ParseDocxContent(docx, blocks)
-	// 	title = docx.Title
-	// } else {
-	// 	doc, err := client.GetDocContent(ctx, docToken)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	markdown = parser.ParseDocContent(doc)
-	// 	for _, element := range doc.Title.Elements {
-	// 		title += element.TextRun.Text
-	// 	}
-	// }
-
-	// for _, imgToken := range parser.ImgTokens {
-	// 	localLink, err := client.DownloadImage(ctx, imgToken)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	markdown = strings.Replace(markdown, imgToken, localLink, 1)
-	// }
-
-	// engine := lute.New(func(l *lute.Lute) {
-	// 	l.RenderOptions.AutoSpace = true
-	// })
-	// result := engine.FormatStr("md", markdown)
-
-	// mdName := fmt.Sprintf("%s.md", docToken)
-	// if config.Output.TitleAsFilename {
-	// 	mdName = fmt.Sprintf("%s.md", title)
-	// }
-	// if err = os.WriteFile(mdName, []byte(result), 0o644); err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("Downloaded markdown file to %s\n", mdName)
+	// 业务处理
+	fmt.Println(larkcore.Prettify(resp))
 
 	return nil
 }
@@ -156,10 +117,8 @@ func main() {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			verbose := ctx.Bool("verbose")
-			if ctx.NArg() > 0 {
-				url := ctx.Args().Get(0)
-				return handleUrlArgument(url, verbose)
+			if ctx.NArg() == 0 {
+				return handleBackupCommand()
 			} else {
 				cli.ShowAppHelp(ctx)
 			}

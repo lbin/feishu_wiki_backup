@@ -26,5 +26,3 @@
 ## 感谢
 
 - [Wsine/feishu2md](https://github.com/Wsine/feishu2md)
-- [chyroc/lark](https://github.com/chyroc/lark)
-- [chyroc/lark_docs_md](https://github.com/chyroc/lark_docs_md)

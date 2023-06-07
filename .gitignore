@@ -21,3 +21,6 @@
 go.work
 
 /bin
+.env
+.DS_Store
+*.pyc
